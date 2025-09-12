@@ -1,0 +1,45 @@
+/* src/styles/sidebar.css  — estilos só da sidebar do Fazenda */
+
+:root{
+  --faz-btn-bg: #f8fafc;           /* slate-50/100 */
+  --faz-btn-bg-hover: #eef2f7;     /* hover leve */
+  --faz-btn-bg-active: #e6f0ff;    /* azul clarinho para ativo */
+  --faz-btn-text: #0f172a;         /* slate-900 */
+  --faz-btn-text-active: #0b2e63;  /* azul escuro */
+  --faz-btn-ring: #7aa7ff;         /* borda ativa */
+}
+
+/* container opcional da sua sidebar, ajuste se usar outro seletor */
+.sidebar .nav-link,
+button.nav-link {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  text-decoration: none;
+  background: var(--faz-btn-bg);
+  color: var(--faz-btn-text);
+  border: 1px solid transparent;
+  transition: background .15s ease, color .15s ease, border-color .15s ease;
+}
+
+.sidebar .nav-link:hover,
+button.nav-link:hover {
+  background: var(--faz-btn-bg-hover);
+}
+
+.sidebar .nav-link.active,
+button.nav-link.active,
+.sidebar .nav-link[aria-current="page"] {
+  background: var(--faz-btn-bg-active);
+  color: var(--faz-btn-text-active);
+  border-color: var(--faz-btn-ring);
+}
+
+/* se existir alguma regra global .button deixando tudo transparente, neutralize aqui só na sidebar */
+.sidebar .button.nav-link {
+  background: var(--faz-btn-bg);
+  color: var(--faz-btn-text);
+}

@@ -1,7 +1,7 @@
 /* src/styles/sidebar.css  — estilos só da sidebar do Fazenda */
 
 :root{
-  --faz-btn-bg: #f8fafc;           /* slate-50/100 */
+  --faz-btn-bg: #050505;           /* slate-50/100 */
   --faz-btn-bg-hover: #eef2f7;     /* hover leve */
   --faz-btn-bg-active: #e6f0ff;    /* azul clarinho para ativo */
   --faz-btn-text: #0f172a;         /* slate-900 */

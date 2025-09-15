@@ -4,20 +4,13 @@ import tailwind from '@tailwindcss/vite'
 import path from 'node:path'
 
 export default ({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), '')
-  const base = env.VITE_BASE_PATH || '/' // "/fazenda/" em produção via portal
-
+  const env = loadEnv(mode, process.cwd(), '')       // lê VITE_BASE_PATH
   return defineConfig({
     plugins: [react(), tailwind()],
-    base,
+    base: env.VITE_BASE_PATH || '/',                 // << /fazenda/ em produção
     resolve: {
-      alias: {
-        '@': path.resolve(process.cwd(), 'src'),
-      },
+      alias: { '@': path.resolve(process.cwd(), 'src') }
     },
-    build: {
-      outDir: 'dist',
-      sourcemap: true,
-    },  
+    build: { outDir: 'dist', sourcemap: true }
   })
 }

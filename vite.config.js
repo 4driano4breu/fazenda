@@ -3,5 +3,5 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  base: '/', // subdomínio não precisa de subpasta
+  base: '/', // subdomínio → raiz
 })

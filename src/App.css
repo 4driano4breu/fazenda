@@ -41,6 +41,7 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+
 :root {
   --bg: #d7e1e3;
   --panel: #ffffff;
@@ -270,5 +271,67 @@ a {
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* ===== Forçar 2 colunas nos grids que já usam inline style "1fr 1fr" ===== */
+.grid[style*="grid-template-columns: 1fr 1fr"] {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 18px !important;
+}
+
+/* Aumenta um pouco a largura útil do conteúdo para caber confortavelmente 2 cards */
+.layout .main {
+  max-width: 1280px;   /* antes 1120px */
+}
+
+/* Cartões não esticarem além da coluna do grid */
+.grid[style*="grid-template-columns: 1fr 1fr"] > .card {
+  width: 100%;
+}
+
+/* Responsivo: abaixo de 980px, cai para 1 coluna (como no eco) */
+@media (max-width: 980px) {
+  .grid[style*="grid-template-columns: 1fr 1fr"] {
+    grid-template-columns: 1fr !important;
+  }
+}
+/* CSS Mínimo - Apenas Correções de Posicionamento */
+/* Mantém 100% do visual atual, só organiza o formulário */
+
+/* Organizar formulário em grid (2 colunas) */
+.form-grid,
+.cadastro-form {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 16px !important;
+  margin-bottom: 20px !important;
+}
+
+/* Descrição e Quantidade ocupam linha inteira */
+.form-group:has(.form-textarea),
+.form-group:has(textarea),
+.form-group:last-child {
+  grid-column: 1 / -1 !important;
+}
+
+/* Garantir espaçamento entre label e input */
+.form-group {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+}
+
+.form-label {
+  display: block !important;
+  margin-bottom: 4px !important;
+}
+
+/* Responsivo - mobile volta para 1 coluna */
+@media (max-width: 768px) {
+  .form-grid,
+  .cadastro-form {
+    grid-template-columns: 1fr !important;
   }
 }

@@ -1,64 +1,130 @@
-// Serviço de Autenticação integrado com o Ecosistema Rial
-import { auth } from './firebaseConfig.js';
-import { 
-  signInWithEmailAndPassword, 
-  signOut, 
-  onAuthStateChanged,
-  createUserWithEmailAndPassword 
-} from 'firebase/auth';
+// Serviço de Autenticação EXCLUSIVAMENTE com Supabase
+import { supabase } from './supabaseConfig.js';
 
 class AuthService {
   constructor() {
     this.currentUser = null;
     this.authStateListeners = [];
+    this.initializeAuth();
   }
 
-  // Inicializar o listener de estado de autenticação
-  initAuthStateListener() {
-    return onAuthStateChanged(auth, (user) => {
-      this.currentUser = user;
-      this.authStateListeners.forEach(callback => callback(user));
-    });
+  async initializeAuth() {
+    try {
+      // Verificar sessão atual
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        console.error('Erro ao verificar sessão:', error);
+        throw error;
+      }
+
+      this.currentUser = session?.user || null;
+      
+      // Escutar mudanças no estado de autenticação
+      supabase.auth.onAuthStateChange((event, session) => {
+        this.currentUser = session?.user || null;
+        this.notifyAuthStateChange(this.currentUser);
+      });
+      
+    } catch (error) {
+      console.error('Erro ao inicializar autenticação:', error);
+      throw new Error('Falha na conexão com o banco de dados. Verifique sua conexão com a internet.');
+    }
+    
+    this.notifyAuthStateChange(this.currentUser);
   }
 
-  // Adicionar listener para mudanças no estado de autenticação
-  onAuthStateChange(callback) {
-    this.authStateListeners.push(callback);
-    return () => {
-      this.authStateListeners = this.authStateListeners.filter(cb => cb !== callback);
-    };
-  }
-
-  // Login com email e senha (compatível com o ecosistema Rial)
+  // Login com email e senha
   async login(email, password) {
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (error) {
+        return { success: false, error: this.getErrorMessage(error.message) };
+      }
+
+      this.currentUser = data.user;
       return {
         success: true,
         user: {
-          uid: userCredential.user.uid,
-          email: userCredential.user.email,
-          name: userCredential.user.displayName || userCredential.user.email?.split('@')[0] || 'Usuário'
+          uid: data.user.id,
+          email: data.user.email,
+          name: data.user.user_metadata?.name || data.user.email?.split('@')[0] || 'Usuário'
         }
       };
     } catch (error) {
-      return {
-        success: false,
-        error: this.getErrorMessage(error.code)
-      };
+      console.error('Erro no login:', error);
+      return { success: false, error: 'Erro de conexão. Verifique sua internet e tente novamente.' };
+    }
+  }
+
+  // Registro de novo usuário
+  async register(email, password, userData = {}) {
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name: userData.name || email.split('@')[0],
+            ...userData
+          }
+        }
+      });
+
+      if (error) {
+        return { success: false, error: this.getErrorMessage(error.message) };
+      }
+
+      // Se email confirmation estiver desabilitado, o usuário já estará logado
+      if (data.user && !data.user.email_confirmed_at) {
+        return { 
+          success: true, 
+          user: data.user,
+          message: 'Conta criada com sucesso! Você já pode fazer login.'
+        };
+      }
+
+      return { success: true, user: data.user };
+    } catch (error) {
+      console.error('Erro no registro:', error);
+      return { success: false, error: 'Erro de conexão. Verifique sua internet e tente novamente.' };
     }
   }
 
   // Logout
   async logout() {
     try {
-      await signOut(auth);
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        return { success: false, error: this.getErrorMessage(error.message) };
+      }
+
+      this.currentUser = null;
       return { success: true };
     } catch (error) {
-      return {
-        success: false,
-        error: this.getErrorMessage(error.code)
-      };
+      console.error('Erro no logout:', error);
+      return { success: false, error: 'Erro de conexão. Verifique sua internet e tente novamente.' };
+    }
+  }
+
+  // Reset de senha
+  async resetPassword(email) {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      
+      if (error) {
+        return { success: false, error: this.getErrorMessage(error.message) };
+      }
+
+      return { success: true, message: 'Email de recuperação enviado!' };
+    } catch (error) {
+      console.error('Erro ao resetar senha:', error);
+      return { success: false, error: 'Erro de conexão. Verifique sua internet e tente novamente.' };
     }
   }
 
@@ -69,30 +135,72 @@ class AuthService {
 
   // Obter usuário atual
   getCurrentUser() {
-    return this.currentUser ? {
-      uid: this.currentUser.uid,
+    if (!this.currentUser) return null;
+
+    return {
+      uid: this.currentUser.id,
       email: this.currentUser.email,
-      name: this.currentUser.displayName || this.currentUser.email?.split('@')[0] || 'Usuário'
-    } : null;
+      name: this.currentUser.user_metadata?.name || this.currentUser.email?.split('@')[0] || 'Usuário'
+    };
   }
 
-  // Traduzir códigos de erro do Firebase
-  getErrorMessage(errorCode) {
+  // Adicionar listener para mudanças no estado de autenticação
+  onAuthStateChange(callback) {
+    this.authStateListeners.push(callback);
+    
+    return () => {
+      this.authStateListeners = this.authStateListeners.filter(
+        listener => listener !== callback
+      );
+    };
+  }
+
+  // Notificar todos os listeners sobre mudanças no estado
+  notifyAuthStateChange(user) {
+    this.authStateListeners.forEach(callback => {
+      try {
+        callback(user);
+      } catch (error) {
+        console.error('Erro no listener de autenticação:', error);
+      }
+    });
+  }
+
+  // Obter token de acesso atual
+  async getAccessToken() {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      return session?.access_token || null;
+    } catch (error) {
+      console.error('Erro ao obter token:', error);
+      return null;
+    }
+  }
+
+  // Traduzir mensagens de erro do Supabase
+  getErrorMessage(errorMessage) {
     const errorMessages = {
-      'auth/user-not-found': 'Usuário não encontrado',
-      'auth/wrong-password': 'Senha incorreta',
-      'auth/invalid-email': 'Email inválido',
-      'auth/user-disabled': 'Usuário desabilitado',
-      'auth/too-many-requests': 'Muitas tentativas. Tente novamente mais tarde',
-      'auth/network-request-failed': 'Erro de conexão. Verifique sua internet',
-      'auth/invalid-credential': 'Credenciais inválidas'
+      'Invalid login credentials': 'Email ou senha incorretos',
+      'Email not confirmed': 'Email não confirmado. Verifique sua caixa de entrada',
+      'User not found': 'Usuário não encontrado',
+      'Invalid email': 'Email inválido',
+      'Password should be at least 6 characters': 'A senha deve ter pelo menos 6 caracteres',
+      'User already registered': 'Usuário já cadastrado',
+      'Too many requests': 'Muitas tentativas. Tente novamente mais tarde',
+      'Failed to fetch': 'Erro de conexão. Verifique sua internet e as configurações do Supabase.',
+      'signup is disabled': 'Registro de novos usuários está desabilitado',
+      'Email rate limit exceeded': 'Limite de emails excedido. Tente novamente mais tarde'
     };
     
-    return errorMessages[errorCode] || 'Erro desconhecido. Tente novamente';
+    for (const [key, value] of Object.entries(errorMessages)) {
+      if (errorMessage && errorMessage.includes(key)) {
+        return value;
+      }
+    }
+    
+    return errorMessage || 'Erro desconhecido. Verifique sua conexão e tente novamente';
   }
 }
 
-// Exportar instância única (singleton)
 export const authService = new AuthService();
 export default authService;
-

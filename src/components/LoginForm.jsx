@@ -13,13 +13,24 @@ const LoginForm = () => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isRegister, setIsRegister] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
-    const result = await authService.login(formData.email, formData.password);
+    let result;
+    if (isRegister) {
+      result = await authService.register(formData.email, formData.password);
+      if (result.success) {
+        setError('Conta criada com sucesso! Verifique seu email para confirmar.');
+        setIsRegister(false);
+        setFormData({ email: '', password: '' });
+      }
+    } else {
+      result = await authService.login(formData.email, formData.password);
+    }
     
     if (!result.success) {
       setError(result.error);
@@ -44,7 +55,7 @@ const LoginForm = () => {
             </div>
           </div>
           <p style={{ color: 'var(--muted)', margin: 0 }}>
-            Entre com suas credenciais do Ecosistema Rial
+            {isRegister ? 'Criar nova conta' : 'Entre com suas credenciais'}
           </p>
         </div>
 
@@ -72,16 +83,17 @@ const LoginForm = () => {
               placeholder="••••••••"
               required
               disabled={loading}
+              minLength={6}
             />
           </div>
 
           {error && (
             <div style={{ 
               padding: '12px', 
-              backgroundColor: '#fef2f2', 
-              border: '1px solid #fecaca', 
+              backgroundColor: error.includes('sucesso') ? '#f0fdf4' : '#fef2f2', 
+              border: `1px solid ${error.includes('sucesso') ? '#bbf7d0' : '#fecaca'}`, 
               borderRadius: '8px',
-              color: '#dc2626',
+              color: error.includes('sucesso') ? '#166534' : '#dc2626',
               fontSize: '14px'
             }}>
               {error}
@@ -93,7 +105,21 @@ const LoginForm = () => {
             disabled={loading}
             style={{ width: '100%' }}
           >
-            {loading ? 'Entrando...' : 'Entrar'}
+            {loading ? (isRegister ? 'Criando conta...' : 'Entrando...') : (isRegister ? 'Criar Conta' : 'Entrar')}
+          </Button>
+
+          <Button 
+            type="button" 
+            variant="outline"
+            onClick={() => {
+              setIsRegister(!isRegister);
+              setError('');
+              setFormData({ email: '', password: '' });
+            }}
+            disabled={loading}
+            style={{ width: '100%' }}
+          >
+            {isRegister ? 'Já tenho conta' : 'Criar nova conta'}
           </Button>
         </form>
 
@@ -105,8 +131,11 @@ const LoginForm = () => {
           fontSize: '12px',
           color: 'var(--muted)'
         }}>
-          <strong>Integração com Ecosistema Rial:</strong><br />
-          Use as mesmas credenciais que você utiliza no sistema principal do Rial.
+          <strong>Sistema de Estoque da Fazenda:</strong><br />
+          {isRegister 
+            ? 'Crie uma conta para começar a gerenciar seu estoque.'
+            : 'Use suas credenciais para acessar o sistema de controle de estoque.'
+          }
         </div>
       </div>
     </div>
@@ -114,4 +143,3 @@ const LoginForm = () => {
 };
 
 export default LoginForm;
-

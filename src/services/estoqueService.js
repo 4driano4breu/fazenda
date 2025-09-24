@@ -1,24 +1,10 @@
-// Serviço de Estoque integrado com Firestore (Ecosistema Rial)
-import { db } from './firebaseConfig.js';
-import { 
-  collection, 
-  doc, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  getDocs, 
-  getDoc,
-  query, 
-  orderBy, 
-  where,
-  onSnapshot,
-  serverTimestamp 
-} from 'firebase/firestore';
+// Serviço de Estoque EXCLUSIVAMENTE com Supabase
+import { supabase } from './supabaseConfig.js';
 
 class EstoqueService {
   constructor() {
-    this.itensCollection = 'fazenda_estoque_itens';
-    this.movimentacoesCollection = 'fazenda_estoque_movimentacoes';
+    this.itensTable = 'fazenda_estoque_itens';
+    this.movimentacoesTable = 'fazenda_estoque_movimentacoes';
   }
 
   // CRUD de Itens
@@ -26,17 +12,26 @@ class EstoqueService {
     try {
       const item = {
         ...dadosItem,
-        userId,
-        dataCriacao: serverTimestamp(),
-        dataAtualizacao: serverTimestamp()
+        user_id: userId,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       };
       
-      const docRef = await addDoc(collection(db, this.itensCollection), item);
+      const { data, error } = await supabase
+        .from(this.itensTable)
+        .insert([item])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Erro ao adicionar item:', error);
+        return { success: false, error: 'Erro ao adicionar item. Verifique sua conexão.' };
+      }
       
       // Registrar movimentação inicial se quantidade > 0
       if (dadosItem.quantidade > 0) {
         await this.registrarMovimentacao({
-          itemId: docRef.id,
+          item_id: data.id,
           tipo: 'entrada',
           quantidade: dadosItem.quantidade,
           observacoes: 'Estoque inicial',
@@ -44,87 +39,84 @@ class EstoqueService {
         }, userId);
       }
       
-      return { success: true, id: docRef.id };
+      return { success: true, id: data.id };
     } catch (error) {
       console.error('Erro ao adicionar item:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: 'Erro de conexão. Verifique sua internet.' };
     }
   }
 
   async atualizarItem(itemId, dadosItem, userId) {
     try {
-      const itemRef = doc(db, this.itensCollection, itemId);
-      await updateDoc(itemRef, {
-        ...dadosItem,
-        dataAtualizacao: serverTimestamp()
-      });
+      const itemRef = { 
+        ...dadosItem, 
+        updated_at: new Date().toISOString() 
+      };
+      
+      const { error } = await supabase
+        .from(this.itensTable)
+        .update(itemRef)
+        .eq('id', itemId)
+        .eq('user_id', userId);
+
+      if (error) {
+        console.error('Erro ao atualizar item:', error);
+        return { success: false, error: 'Erro ao atualizar item. Verifique sua conexão.' };
+      }
       
       return { success: true };
     } catch (error) {
       console.error('Erro ao atualizar item:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: 'Erro de conexão. Verifique sua internet.' };
     }
   }
 
   async excluirItem(itemId, userId) {
     try {
-      // Excluir item
-      await deleteDoc(doc(db, this.itensCollection, itemId));
-      
-      // Excluir movimentações relacionadas
-      const movimentacoesQuery = query(
-        collection(db, this.movimentacoesCollection),
-        where('itemId', '==', itemId),
-        where('userId', '==', userId)
-      );
-      
-      const movimentacoesSnapshot = await getDocs(movimentacoesQuery);
-      const deletePromises = movimentacoesSnapshot.docs.map(doc => deleteDoc(doc.ref));
-      await Promise.all(deletePromises);
+      // Primeiro, excluir todas as movimentações relacionadas
+      await supabase
+        .from(this.movimentacoesTable)
+        .delete()
+        .eq('item_id', itemId)
+        .eq('user_id', userId);
+
+      // Depois, excluir o item
+      const { error } = await supabase
+        .from(this.itensTable)
+        .delete()
+        .eq('id', itemId)
+        .eq('user_id', userId);
+
+      if (error) {
+        console.error('Erro ao excluir item:', error);
+        return { success: false, error: 'Erro ao excluir item. Verifique sua conexão.' };
+      }
       
       return { success: true };
     } catch (error) {
       console.error('Erro ao excluir item:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: 'Erro de conexão. Verifique sua internet.' };
     }
   }
 
   async obterItens(userId) {
     try {
-      const q = query(
-        collection(db, this.itensCollection),
-        where('userId', '==', userId),
-        orderBy('dataCriacao', 'desc')
-      );
+      const { data, error } = await supabase
+        .from(this.itensTable)
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Erro ao obter itens:', error);
+        return { success: false, error: 'Erro ao carregar itens. Verifique sua conexão.' };
+      }
       
-      const querySnapshot = await getDocs(q);
-      const itens = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      
-      return { success: true, data: itens };
+      return { success: true, data: data || [] };
     } catch (error) {
       console.error('Erro ao obter itens:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: 'Erro de conexão. Verifique sua internet.' };
     }
-  }
-
-  // Listener em tempo real para itens
-  onItensChange(userId, callback) {
-    const q = query(
-      collection(db, this.itensCollection),
-      where('userId', '==', userId),
-      orderBy('dataCriacao', 'desc')
-    );
-    
-    return onSnapshot(q, (querySnapshot) => {
-      const itens = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      callback(itens);
-    });
   }
 
   // CRUD de Movimentações
@@ -132,112 +124,132 @@ class EstoqueService {
     try {
       const movimentacao = {
         ...dadosMovimentacao,
-        userId,
-        dataRegistro: serverTimestamp()
+        user_id: userId,
+        created_at: new Date().toISOString()
       };
       
-      const docRef = await addDoc(collection(db, this.movimentacoesCollection), movimentacao);
-      
-      // Atualizar quantidade do item
-      const itemRef = doc(db, this.itensCollection, dadosMovimentacao.itemId);
-      const itemDoc = await getDoc(itemRef);
-      
-      if (itemDoc.exists()) {
-        const itemData = itemDoc.data();
-        const novaQuantidade = dadosMovimentacao.tipo === 'entrada'
-          ? itemData.quantidade + dadosMovimentacao.quantidade
-          : Math.max(0, itemData.quantidade - dadosMovimentacao.quantidade);
-        
-        await updateDoc(itemRef, {
-          quantidade: novaQuantidade,
-          dataAtualizacao: serverTimestamp()
-        });
+      const { data, error } = await supabase
+        .from(this.movimentacoesTable)
+        .insert([movimentacao])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Erro ao registrar movimentação:', error);
+        return { success: false, error: 'Erro ao registrar movimentação. Verifique sua conexão.' };
       }
+
+      // Atualizar quantidade do item
+      await this.atualizarQuantidadeItem(dadosMovimentacao.item_id, dadosMovimentacao.tipo, dadosMovimentacao.quantidade, userId);
       
-      return { success: true, id: docRef.id };
+      return { success: true, id: data.id };
     } catch (error) {
       console.error('Erro ao registrar movimentação:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: 'Erro de conexão. Verifique sua internet.' };
     }
   }
 
-  async obterMovimentacoes(userId, limit = null) {
+  async atualizarQuantidadeItem(itemId, tipo, quantidade, userId) {
     try {
-      let q = query(
-        collection(db, this.movimentacoesCollection),
-        where('userId', '==', userId),
-        orderBy('dataRegistro', 'desc')
-      );
-      
-      if (limit) {
-        q = query(q, limit(limit));
+      // Obter item atual
+      const { data: item, error: itemError } = await supabase
+        .from(this.itensTable)
+        .select('quantidade')
+        .eq('id', itemId)
+        .eq('user_id', userId)
+        .single();
+
+      if (itemError) {
+        console.error('Erro ao obter item para atualização:', itemError);
+        return { success: false, error: 'Erro ao atualizar quantidade.' };
+      }
+
+      // Calcular nova quantidade
+      const quantidadeAtual = item.quantidade || 0;
+      const novaQuantidade = tipo === 'entrada' 
+        ? quantidadeAtual + quantidade 
+        : quantidadeAtual - quantidade;
+
+      // Atualizar item
+      const { error: updateError } = await supabase
+        .from(this.itensTable)
+        .update({ 
+          quantidade: Math.max(0, novaQuantidade),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', itemId)
+        .eq('user_id', userId);
+
+      if (updateError) {
+        console.error('Erro ao atualizar quantidade:', updateError);
+        return { success: false, error: 'Erro ao atualizar quantidade.' };
       }
       
-      const querySnapshot = await getDocs(q);
-      const movimentacoes = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      return { success: true };
+    } catch (error) {
+      console.error('Erro ao atualizar quantidade do item:', error);
+      return { success: false, error: 'Erro de conexão. Verifique sua internet.' };
+    }
+  }
+
+  async obterMovimentacoes(userId, itemId = null) {
+    try {
+      let query = supabase
+        .from(this.movimentacoesTable)
+        .select(`
+          *,
+          fazenda_estoque_itens!inner(nome)
+        `)
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (itemId) {
+        query = query.eq('item_id', itemId);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error('Erro ao obter movimentações:', error);
+        return { success: false, error: 'Erro ao carregar movimentações. Verifique sua conexão.' };
+      }
       
-      return { success: true, data: movimentacoes };
+      return { success: true, data: data || [] };
     } catch (error) {
       console.error('Erro ao obter movimentações:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: 'Erro de conexão. Verifique sua internet.' };
     }
   }
 
-  // Listener em tempo real para movimentações
-  onMovimentacoesChange(userId, callback) {
-    const q = query(
-      collection(db, this.movimentacoesCollection),
-      where('userId', '==', userId),
-      orderBy('dataRegistro', 'desc')
-    );
-    
-    return onSnapshot(q, (querySnapshot) => {
-      const movimentacoes = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      callback(movimentacoes);
-    });
-  }
-
-  // Relatórios
+  // Relatórios e estatísticas
   async obterEstatisticas(userId) {
     try {
-      const itensResult = await this.obterItens(userId);
-      const movimentacoesResult = await this.obterMovimentacoes(userId);
-      
-      if (!itensResult.success || !movimentacoesResult.success) {
-        throw new Error('Erro ao obter dados para estatísticas');
+      const resultItens = await this.obterItens(userId);
+      const resultMovimentacoes = await this.obterMovimentacoes(userId);
+
+      if (!resultItens.success || !resultMovimentacoes.success) {
+        return { success: false, error: 'Erro ao obter dados para estatísticas' };
       }
-      
-      const itens = itensResult.data;
-      const movimentacoes = movimentacoesResult.data;
-      
-      const totalItens = itens.length;
-      const itensComEstoque = itens.filter(item => item.quantidade > 0).length;
-      const itensSemEstoque = itens.filter(item => item.quantidade === 0).length;
-      const totalMovimentacoes = movimentacoes.length;
-      
+
+      const itens = resultItens.data;
+      const movimentacoes = resultMovimentacoes.data;
+      const itensEstoqueBaixo = itens.filter(item => item.quantidade <= 5);
+
       return {
         success: true,
         data: {
-          totalItens,
-          itensComEstoque,
-          itensSemEstoque,
-          totalMovimentacoes
+          totalItens: itens.length,
+          totalMovimentacoes: movimentacoes.length,
+          itensEstoqueBaixo: itensEstoqueBaixo.length,
+          alertas: itensEstoqueBaixo
         }
       };
     } catch (error) {
       console.error('Erro ao obter estatísticas:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: 'Erro de conexão. Verifique sua internet.' };
     }
   }
 }
 
-// Exportar instância única (singleton)
 export const estoqueService = new EstoqueService();
 export default estoqueService;
-

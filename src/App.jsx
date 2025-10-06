@@ -19,7 +19,7 @@ import {
   registrarMovimentacao as registrarMovService,
 } from '@/services/movimentacoes'
 
-import './App.css'
+// ⛔ nada de './App.css' aqui
 
 export default function App() {
   const { session, loading } = useAuthSession()
@@ -32,7 +32,7 @@ export default function App() {
   // ===== Helpers de mapeamento (DB → UI) =====
   const mapMovDbToUi = (m) => ({
     id: m.id,
-    itemId: m.item_id,          // o componente usa itemId
+    itemId: m.item_id,
     tipo: m.tipo,               // 'entrada' | 'saida'
     quantidade: m.quantidade,
     data: m.data,
@@ -49,8 +49,8 @@ export default function App() {
           listarItens(),
           listarMovimentacoes(200),
         ])
-        setItens(dbItens)                             // já vem com { id, nome, descricao, unidade, quantidade, ... }
-        setMovimentacoes(dbMovs.map(mapMovDbToUi))    // adapta campo item_id -> itemId
+        setItens(dbItens)                          // { id, nome, descricao, unidade, quantidade, ... }
+        setMovimentacoes(dbMovs.map(mapMovDbToUi)) // item_id -> itemId
       } catch (e) {
         console.error(e)
         alert('Erro ao carregar dados do banco: ' + (e.message || e))
@@ -71,9 +71,9 @@ export default function App() {
       })
       setItens((prev) => [novo, ...prev])
 
-      // recarrega últimas movimentações (opcional, para ver “Estoque inicial”)
+      // recarrega algumas movimentações (ver “Estoque inicial”)
       const movs = await listarMovimentacoes(50)
-      setMovimentacoes((prev) => [...movs.map(mapMovDbToUi)])
+      setMovimentacoes(movs.map(mapMovDbToUi))
     } catch (e) {
       console.error(e)
       alert('Erro ao criar item: ' + (e.message || e))
@@ -89,7 +89,6 @@ export default function App() {
           nome: dadosItem.nome,
           descricao: dadosItem.descricao,
           unidade: dadosItem.unidade,
-          // quantidade não é editada aqui — é alterada pelas movimentações
         })
         .eq('id', itemEditando.id)
         .select()
@@ -126,10 +125,8 @@ export default function App() {
         observacoes: dadosMov.observacoes,
       })
 
-      // Atualiza item no estado (quantidade nova vinda do banco)
       setItens((prev) => prev.map((i) => (i.id === item.id ? item : i)))
 
-      // Adiciona a movimentação mais recente no topo (mapeada para a forma da UI)
       if (movimentacao) {
         setMovimentacoes((prev) => [mapMovDbToUi(movimentacao), ...prev])
       }
@@ -149,8 +146,8 @@ export default function App() {
     switch (activeTab) {
       case 'estoque':
         return (
-          <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '18px' }}>
-            <div className="card">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="rounded-lg border bg-card text-card-foreground p-4 shadow-sm">
               <EstoqueForm
                 onSubmit={itemEditando ? editarItem : adicionarItem}
                 initialData={itemEditando}
@@ -165,21 +162,37 @@ export default function App() {
                 </Button>
               )}
             </div>
-            <div className="card">
-              <h3 style={{ marginBottom: '16px', fontWeight: 600 }}>Itens em Estoque</h3>
+            <div className="rounded-lg border bg-card text-card-foreground p-4 shadow-sm">
+              <h3 className="mb-4 font-semibold">Itens em Estoque</h3>
               <EstoqueList itens={itens} onEdit={setItemEditando} onDelete={excluirItem} />
             </div>
           </div>
         )
 
-      case 'movimentacao':
+      case 'mov-cadastrar': // da sidebar nova
         return (
-          <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '18px' }}>
-            <div className="card">
+          <div className="rounded-lg border bg-card text-card-foreground p-4 shadow-sm">
+            <h3 className="mb-4 font-semibold">Registrar Movimentação</h3>
+            <MovimentacaoForm itens={itens} onSubmit={registrarMovimentacao} />
+          </div>
+        )
+
+      case 'mov-listar': // da sidebar nova
+        return (
+          <div className="rounded-lg border bg-card text-card-foreground p-4 shadow-sm">
+            <h3 className="mb-4 font-semibold">Últimas Movimentações</h3>
+            <MovimentacaoList movimentacoes={movimentacoes} itens={itens} />
+          </div>
+        )
+
+      case 'movimentacao': // compatibilidade com layout antigo
+        return (
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="rounded-lg border bg-card text-card-foreground p-4 shadow-sm">
               <MovimentacaoForm itens={itens} onSubmit={registrarMovimentacao} />
             </div>
-            <div className="card">
-              <h3 style={{ marginBottom: '16px', fontWeight: 600 }}>Últimas Movimentações</h3>
+            <div className="rounded-lg border bg-card text-card-foreground p-4 shadow-sm">
+              <h3 className="mb-4 font-semibold">Últimas Movimentações</h3>
               <MovimentacaoList movimentacoes={movimentacoes.slice(0, 5)} itens={itens} />
             </div>
           </div>
@@ -187,46 +200,37 @@ export default function App() {
 
       case 'historico':
         return (
-          <div className="card">
-            <h2 style={{ marginBottom: '16px', fontSize: '18px', fontWeight: 600 }}>
-              Histórico Completo de Movimentações
-            </h2>
+          <div className="rounded-lg border bg-card text-card-foreground p-4 shadow-sm">
+            <h2 className="mb-4 text-lg font-semibold">Histórico Completo de Movimentações</h2>
             <MovimentacaoList movimentacoes={movimentacoes} itens={itens} />
           </div>
         )
 
       case 'relatorios':
         return (
-          <div
-            className="grid"
-            style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '18px' }}
-          >
-            <div className="card">
-              <div className="kpi">
-                <div className="label">Total de Itens</div>
-                <div className="value">{totalItens}</div>
+          <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(200px,1fr))]">
+            <div className="rounded-lg border bg-card text-card-foreground p-4 shadow-sm">
+              <div className="flex flex-col gap-1">
+                <div className="text-xs text-muted-foreground">Total de Itens</div>
+                <div className="text-2xl font-semibold">{totalItens}</div>
               </div>
             </div>
-            <div className="card">
-              <div className="kpi">
-                <div className="label">Itens em Estoque</div>
-                <div className="value" style={{ color: '#059669' }}>
-                  {itensComEstoque}
-                </div>
+            <div className="rounded-lg border bg-card text-card-foreground p-4 shadow-sm">
+              <div className="flex flex-col gap-1">
+                <div className="text-xs text-muted-foreground">Itens em Estoque</div>
+                <div className="text-2xl font-semibold text-green-600">{itensComEstoque}</div>
               </div>
             </div>
-            <div className="card">
-              <div className="kpi">
-                <div className="label">Itens sem Estoque</div>
-                <div className="value" style={{ color: '#dc2626' }}>
-                  {itensSemEstoque}
-                </div>
+            <div className="rounded-lg border bg-card text-card-foreground p-4 shadow-sm">
+              <div className="flex flex-col gap-1">
+                <div className="text-xs text-muted-foreground">Itens sem Estoque</div>
+                <div className="text-2xl font-semibold text-red-600">{itensSemEstoque}</div>
               </div>
             </div>
-            <div className="card">
-              <div className="kpi">
-                <div className="label">Total de Movimentações</div>
-                <div className="value">{movimentacoes.length}</div>
+            <div className="rounded-lg border bg-card text-card-foreground p-4 shadow-sm">
+              <div className="flex flex-col gap-1">
+                <div className="text-xs text-muted-foreground">Total de Movimentações</div>
+                <div className="text-2xl font-semibold">{movimentacoes.length}</div>
               </div>
             </div>
           </div>
@@ -238,27 +242,33 @@ export default function App() {
   }
 
   // ===== Autenticação / Loading =====
-  if (loading) return <p>Carregando...</p>
+  if (loading) return <p className="p-5">Carregando...</p>
 
   if (!session) {
     return (
-      <div style={{ padding: 20 }}>
-        <h2>Fazenda — Entrar</h2>
-        <Login />
+      <div className="min-h-dvh grid place-items-center bg-background">
+        <div className="rounded-lg border bg-card text-card-foreground p-6 shadow-sm w-[90%] max-w-md">
+          <Login />
+        </div>
       </div>
     )
   }
 
   if (bootLoading) {
-    return <p style={{ padding: 20 }}>Carregando dados do banco…</p>
+    return <p className="p-5">Carregando dados do banco…</p>
   }
 
   // ===== App =====
   return (
-    <div style={{ padding: 20 }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+    <div className="p-5">
+      <header className="mb-4 flex items-center justify-between">
         <strong>Logado: {session.user?.email}</strong>
-        <button onClick={() => supabase.auth.signOut()}>Sair</button>
+        <button
+          onClick={() => supabase.auth.signOut()}
+          className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted"
+        >
+          Sair
+        </button>
       </header>
 
       <Layout>{({ activeTab }) => renderContent(activeTab)}</Layout>

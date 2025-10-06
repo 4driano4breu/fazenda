@@ -1,2 +1,2 @@
-@import "tailwindcss";
-
+/* Tailwind v4 entrypoint */
+@import "./styles/theme.css";

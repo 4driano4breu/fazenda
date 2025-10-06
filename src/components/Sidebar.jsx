@@ -1,88 +1,71 @@
-import { useState } from 'react';
-import { Package, Plus, History, BarChart3, ChevronDown, ChevronRight } from 'lucide-react';
+// src/components/Sidebar.jsx
+import { useState } from "react"
+import { Package, Plus, History, BarChart3, ChevronDown, ChevronRight } from "lucide-react"
 
-const NavLink = ({ href, label, active, onClick, icon: Icon }) => (
+const Item = ({ active, onClick, icon: Icon, children }) => (
   <button
     onClick={onClick}
-    className={`nav-link ${active ? 'active' : ''}`}
-    style={{ paddingLeft: 12 }}
+    className={[
+      "w-full group flex items-center gap-2 rounded-lg px-3 py-2 text-sm",
+      active
+        ? "bg-accent text-accent-foreground"
+        : "hover:bg-muted hover:text-foreground text-muted-foreground"
+    ].join(" ")}
   >
-    {Icon && <Icon className="nav-icon" />}
-    {label}
+    {Icon && <Icon className="size-4 opacity-80 group-hover:opacity-100" />}
+    <span className="truncate">{children}</span>
   </button>
-);
+)
 
-const ToggleRow = ({ open, onClick, label, icon: Icon }) => (
-  <button
-    className="toggle-button"
-    onClick={onClick}
-  >
-    <span className="toggle-content">
-      {Icon && <Icon className="nav-icon" />}
-      {label}
-    </span>
-    <span>
-      {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-    </span>
-  </button>
-);
-
-const Sidebar = ({ activeTab, setActiveTab }) => {
-  const [openEstoque, setOpenEstoque] = useState(true);
+export default function Sidebar({ activeTab, setActiveTab }) {
+  const [openMov, setOpenMov] = useState(true)
 
   return (
-    <aside className="sidebar">
-      <div className="brand">
-        <span style={{ fontSize: 18 }}>FAZENDA</span>
-        <span className="sub">estoque</span>
+    <aside className="h-dvh w-64 shrink-0 border-r bg-card text-card-foreground">
+      <div className="p-4 border-b">
+        <div className="text-lg font-semibold">Fazenda</div>
+        <div className="text-xs text-muted-foreground">Estoque &amp; Movimentações</div>
       </div>
 
-      <nav className="nav">
-        {/* Nível 0: ESTOQUE */}
-        <ToggleRow 
-          label="Estoque" 
+      <nav className="p-2 flex flex-col gap-1">
+        <Item
+          active={activeTab === "estoque"}
+          onClick={() => setActiveTab("estoque")}
           icon={Package}
-          open={openEstoque} 
-          onClick={() => setOpenEstoque(!openEstoque)} 
-        />
-        {openEstoque && (
-          <div style={{ marginLeft: 10, display: 'grid', gap: 4 }}>
-            <NavLink 
-              label="Gerenciar Itens" 
-              icon={Package}
-              active={activeTab === 'estoque'} 
-              onClick={() => setActiveTab('estoque')}
-            />
-            <NavLink 
-              label="Movimentação" 
+        >
+          Itens de Estoque
+        </Item>
+
+        <button
+          onClick={() => setOpenMov(!openMov)}
+          className="w-full flex items-center justify-between rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
+          <span className="flex items-center gap-2">
+            <BarChart3 className="size-4" />
+            Movimentações
+          </span>
+          {openMov ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+        </button>
+
+        {openMov && (
+          <div className="pl-2 flex flex-col gap-1">
+            <Item
+              active={activeTab === "mov-cadastrar"}
+              onClick={() => setActiveTab("mov-cadastrar")}
               icon={Plus}
-              active={activeTab === 'movimentacao'} 
-              onClick={() => setActiveTab('movimentacao')}
-            />
-            <NavLink 
-              label="Histórico" 
+            >
+              Registrar Movimentação
+            </Item>
+            <Item
+              active={activeTab === "mov-listar"}
+              onClick={() => setActiveTab("mov-listar")}
               icon={History}
-              active={activeTab === 'historico'} 
-              onClick={() => setActiveTab('historico')}
-            />
-            <NavLink 
-              label="Relatórios" 
-              icon={BarChart3}
-              active={activeTab === 'relatorios'} 
-              onClick={() => setActiveTab('relatorios')}
-            />
+            >
+              Listar Movimentações
+            </Item>
           </div>
         )}
       </nav>
-
-      <div style={{ position: 'absolute', bottom: 18 }}>
-        <div style={{ fontSize: 12, color: '#475569', marginBottom: 8 }}>
-          Sistema de Controle
-        </div>
-      </div>
     </aside>
-  );
-};
-
-export default Sidebar;
-
+  )
+}

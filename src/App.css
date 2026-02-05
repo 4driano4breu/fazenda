@@ -522,4 +522,64 @@ button:hover {
   background: var(--primary-600);
   transform: translateY(-1px);
 }
+/* ========================= */
+/* CORRIGIR SELECT / DROPDOWN */
+/* ========================= */
+
+/* botão do select */
+.form-group select,
+.form-group [role="combobox"] {
+  width: 220px;
+  height: 42px;
+}
+
+/* menu dropdown */
+[data-radix-select-content],
+.select-content {
+  min-width: 220px !important;
+  z-index: 9999 !important;
+}
+
+/* itens do dropdown */
+[data-radix-select-item],
+.select-item {
+  padding: 8px 12px;
+  font-size: 14px;
+}
+
+/* ========================= */
+/* CORRIGIR INPUT NUMBER */
+/* ========================= */
+
+.form-group input[type="number"] {
+  width: 220px;
+  height: 42px;
+  padding: 8px 12px;
+}
+
+/* Remove aparência feia do number */
+input[type="number"]::-webkit-inner-spin-button {
+  height: 100%;
+}
+
+/* ========================= */
+/* BOTÃO CADASTRAR */
+/* ========================= */
+
+button {
+  margin-top: 14px;
+  height: 44px;
+  padding: 0 22px;
+  border-radius: 10px;
+  font-weight: 600;
+  border: none;
+  background: #111;
+  color: white;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+button:hover {
+  background: #000;
+}
 
